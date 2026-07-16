@@ -1,12 +1,60 @@
-<svg width="180" height="180" viewBox="0 0 180 180" fill="none" xmlns="http://www.w3.org/2000/svg">
-<g clip-path="url(#clip0_19_13)">
-<path d="M18 84.8528L85.8822 16.9706C95.2548 7.59798 110.451 7.59798 119.823 16.9706V16.9706C129.196 26.3431 129.196 41.5391 119.823 50.9117L68.5581 102.177" stroke="black" stroke-width="12" stroke-linecap="round"/>
-<path d="M69.2652 101.47L119.823 50.9117C129.196 41.5391 144.392 41.5391 153.765 50.9117L154.118 51.2652C163.491 60.6378 163.491 75.8338 154.118 85.2063L92.7248 146.6C89.6006 149.724 89.6006 154.789 92.7248 157.913L105.331 170.52" stroke="black" stroke-width="12" stroke-linecap="round"/>
-<path d="M102.853 33.9411L52.6482 84.1457C43.2756 93.5183 43.2756 108.714 52.6482 118.087V118.087C62.0208 127.459 77.2167 127.459 86.5893 118.087L136.794 67.8822" stroke="black" stroke-width="12" stroke-linecap="round"/>
-</g>
-<defs>
-<clipPath id="clip0_19_13">
-<rect width="180" height="180" fill="white"/>
-</clipPath>
-</defs>
-</svg>
+<?xml version="1.0" encoding="UTF-8" standalone="no"?>
+<svg
+   width="180"
+   height="180"
+   viewBox="0 0 180 180"
+   fill="none"
+   version="1.1"
+   id="svg3"
+   sodipodi:docname="mcp-server-datovka.svg"
+   xml:space="preserve"
+   inkscape:version="1.4 (e7c3feb100, 2024-10-09)"
+   xmlns:inkscape="http://www.inkscape.org/namespaces/inkscape"
+   xmlns:sodipodi="http://sodipodi.sourceforge.net/DTD/sodipodi-0.dtd"
+   xmlns="http://www.w3.org/2000/svg"
+   xmlns:svg="http://www.w3.org/2000/svg"><sodipodi:namedview
+     id="namedview3"
+     pagecolor="#ffffff"
+     bordercolor="#000000"
+     borderopacity="0.25"
+     inkscape:showpageshadow="2"
+     inkscape:pageopacity="0.0"
+     inkscape:pagecheckerboard="0"
+     inkscape:deskcolor="#d1d1d1"
+     showguides="false"
+     inkscape:zoom="1.7068772"
+     inkscape:cx="53.899601"
+     inkscape:cy="144.41578"
+     inkscape:window-width="1920"
+     inkscape:window-height="1120"
+     inkscape:window-x="0"
+     inkscape:window-y="0"
+     inkscape:window-maximized="1"
+     inkscape:current-layer="svg3" /><g
+     clip-path="url(#clip0_19_13)"
+     id="g3"
+     transform="translate(0.44499466,-0.24939416)"><path
+       d="M 18,84.8528 85.8822,16.9706 c 9.3726,-9.37262 24.5688,-9.37262 33.9408,0 v 0 c 9.373,9.3725 9.373,24.5685 0,33.9411 L 68.5581,102.177"
+       stroke="#000000"
+       stroke-width="12"
+       stroke-linecap="round"
+       id="path1" /><path
+       d="M 69.2652,101.47 119.823,50.9117 c 9.373,-9.3726 24.569,-9.3726 33.942,0 l 0.353,0.3535 c 9.373,9.3726 9.373,24.5686 0,33.9411 L 92.7248,146.6 c -3.1242,3.124 -3.1242,8.189 0,11.313 l 12.6062,12.607"
+       stroke="#000000"
+       stroke-width="12"
+       stroke-linecap="round"
+       id="path2" /><path
+       d="M 102.853,33.9411 52.6482,84.1457 c -9.3726,9.3726 -9.3726,24.5683 0,33.9413 v 0 c 9.3726,9.372 24.5685,9.372 33.9411,0 L 136.794,67.8822"
+       stroke="#000000"
+       stroke-width="12"
+       stroke-linecap="round"
+       id="path3" /></g><defs
+     id="defs3"><clipPath
+       id="clip0_19_13"><rect
+         width="180"
+         height="180"
+         fill="white"
+         id="rect3" /></clipPath></defs><path
+     style="fill:#003591;fill-opacity:0.74115044;fill-rule:nonzero;stroke:none;stroke-width:2.19884"
+     d="M 162.88447,54.874395 C 159.50892,45.099875 154.12348,37.16343 146.71957,31.056507 139.32426,24.949584 130.33994,20.534711 119.7838,17.803357 109.22766,15.071983 97.829778,13.706306 85.624505,13.706306 H 35.188639 l -6.691001,47.884861 h 50.178184 l 3.5044,-24.934481 52.411388,53.347591 -67.373805,53.347613 3.495824,-24.93449 H 20.54402 l -6.691001,47.87629 h 54.962374 c 11.346361,0 22.443637,-1.64913 33.291807,-4.94739 10.84817,-3.30685 20.65706,-8.15976 29.42664,-14.55013 8.75241,-6.39897 16.12195,-14.30105 22.08287,-23.70623 5.96092,-9.41378 9.80889,-20.29631 11.53531,-32.656186 1.86387,-13.931711 1.10802,-25.793414 -2.25895,-35.559359 z m 0,0"
+     id="path10" /></svg>

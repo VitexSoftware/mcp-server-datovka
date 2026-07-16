@@ -23,7 +23,7 @@ Package: mcp-server-datovka
 Architecture: all
 Multi-Arch: foreign
 Depends:
- python3-datovka (>= 0.1.0),
+ python3-datovka (>= 0.1.1),
  python3-fastmcp,
  ${misc:Depends},
  ${python3:Depends},
