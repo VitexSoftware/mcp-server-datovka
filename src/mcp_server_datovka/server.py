@@ -14,10 +14,13 @@ from datetime import datetime
 from functools import lru_cache
 from typing import Any
 
-from datovka import DatovkaClient, DatovkaError
+from datovka import DatovkaClient, DatovkaError, OutgoingDocument
 from datovka.client import DEFAULT_URL
 from datovka.models import Document, Envelope, Message
 from fastmcp import FastMCP
+
+from . import seznamds
+from .pdf import text_to_pdf
 
 mcp = FastMCP("Datovka")
 
@@ -108,6 +111,101 @@ def get_message(message_id: str, include_attachment_content: bool = False) -> di
     except DatovkaError as exc:
         raise RuntimeError(str(exc)) from exc
     return _message_to_dict(message, include_content=include_attachment_content)
+
+
+@mcp.tool
+def send_message(
+    recipient_box_id: str,
+    subject: str,
+    attachments: list[dict[str, Any]],
+    recipient_org_unit: str | None = None,
+    sender_ref_number: str | None = None,
+) -> str:
+    """Send a new message with file attachments to a data box.
+
+    ``attachments`` is a list of dicts, each with keys ``filename``,
+    ``mime_type``, ``content_base64`` (the file content, base64-encoded),
+    and ``is_main`` (bool). Exactly one attachment must have
+    ``is_main=True`` -- this is the ISDS API's own requirement, not a
+    limitation of this tool. Total attachment size is capped by ISDS at
+    50 MB. For sending plain text without an existing file, use
+    send_text_message instead.
+    """
+    documents = [
+        OutgoingDocument(
+            filename=a["filename"],
+            mime_type=a["mime_type"],
+            data=base64.b64decode(a["content_base64"]),
+            is_main=a.get("is_main", False),
+        )
+        for a in attachments
+    ]
+    try:
+        _get_client().send_message(
+            recipient_box_id,
+            subject,
+            documents,
+            recipient_org_unit=recipient_org_unit,
+            sender_ref_number=sender_ref_number,
+        )
+    except DatovkaError as exc:
+        raise RuntimeError(str(exc)) from exc
+    return f"Message sent to {recipient_box_id}."
+
+
+@mcp.tool
+def send_text_message(recipient_box_id: str, subject: str, body: str) -> str:
+    """Compose plain text as a PDF and send it as a new message.
+
+    Convenience wrapper around send_message for the common case of writing
+    a message from scratch: renders ``body`` (with ``subject`` as a
+    heading) to a PDF and sends it as the message's single, main document.
+    Use send_message directly instead if you already have file(s) to
+    attach, or need more than one document.
+    """
+    pdf_bytes = text_to_pdf(subject, body)
+    document = OutgoingDocument(
+        filename=f"{subject}.pdf",
+        mime_type="application/pdf",
+        data=pdf_bytes,
+        is_main=True,
+    )
+    try:
+        _get_client().send_message(recipient_box_id, subject, [document])
+    except DatovkaError as exc:
+        raise RuntimeError(str(exc)) from exc
+    return f"Message sent to {recipient_box_id}."
+
+
+@mcp.tool
+def find_data_box(query: str, limit: int = 10) -> dict[str, Any]:
+    """Look up a data box ID by name, trade name, or IČO (company ID).
+
+    Searches the offline ``seznamds`` directory first (fast, unlimited
+    calls); only falls back to the live, rate-limited ISDS search API if
+    ``seznamds`` isn't installed or finds nothing. Check the returned
+    ``source`` and ``data_age_days`` fields: results from
+    "seznamds-offline" may be stale (the directory is a periodic snapshot,
+    not a live query) -- if ``data_age_days`` is large, treat name/address
+    matches as provisional and consider that a recently created or renamed
+    box may not appear yet.
+    """
+    age_days = seznamds.data_age_days()
+    if age_days is not None:
+        local_results = seznamds.search_local(query, limit=limit)
+        if local_results:
+            return {
+                "source": "seznamds-offline",
+                "data_age_days": age_days,
+                "stale": age_days > seznamds.STALE_AFTER_DAYS,
+                "results": local_results,
+            }
+
+    try:
+        live_results = _get_client().find_box_live(query, limit=limit)
+    except DatovkaError as exc:
+        raise RuntimeError(str(exc)) from exc
+    return {"source": "isds-live", "data_age_days": 0, "stale": False, "results": live_results}
 
 
 @mcp.tool

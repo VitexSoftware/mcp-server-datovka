@@ -1,3 +1,17 @@
+mcp-server-datovka (0.2.0) unstable; urgency=medium
+
+  * Add send_message tool for sending new messages with attachments.
+  * Add send_text_message tool: composes plain text as a PDF and
+    sends it, so an LLM agent can write a message without an
+    existing file to attach.
+  * Add find_data_box tool: looks up a recipient's data box ID,
+    preferring the offline seznamds directory (fast, unlimited) and
+    falling back to the live ISDS search API. Recommends: seznamds.
+  * Depend on python3-datovka (>= 0.2.0), python3-fpdf, and
+    fonts-dejavu-core.
+
+ -- Vítězslav Dvořák <info@vitexsoftware.cz>  Thu, 16 Jul 2026 10:43:27 +0200
+
 mcp-server-datovka (0.1.0) unstable; urgency=medium
 
   * Initial Debian packaging.
