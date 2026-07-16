@@ -1,0 +1,38 @@
+Source: mcp-server-datovka
+Section: python
+Priority: optional
+Maintainer: Vítězslav Dvořák <info@vitexsoftware.cz>
+Build-Depends:
+ appstream,
+ debhelper-compat (= 13),
+ dh-python,
+ pybuild-plugin-pyproject,
+ python3-all,
+ python3-build,
+ python3-datovka,
+ python3-fastmcp,
+ python3-setuptools,
+ python3-wheel,
+Standards-Version: 4.7.0
+Homepage: https://github.com/VitexSoftware/mcp-server-datovka
+Vcs-Git: https://github.com/VitexSoftware/mcp-server-datovka.git
+Vcs-Browser: https://github.com/VitexSoftware/mcp-server-datovka
+Rules-Requires-Root: no
+
+Package: mcp-server-datovka
+Architecture: all
+Multi-Arch: foreign
+Depends:
+ python3-datovka (>= 0.1.0),
+ python3-fastmcp,
+ ${misc:Depends},
+ ${python3:Depends},
+Description: MCP server for the Czech ISDS Data Box system (datovka)
+ An MCP (Model Context Protocol) server exposing the Czech ISDS
+ ("Datove schranky" / Data Box) system as tools for an LLM agent,
+ built on fastmcp and python3-datovka.
+ .
+ Tools cover listing received/sent messages, fetching a full message
+ with its attachments, marking a message as read, and a session
+ health check. Login credentials are read once from the environment
+ at startup and are never tool parameters.

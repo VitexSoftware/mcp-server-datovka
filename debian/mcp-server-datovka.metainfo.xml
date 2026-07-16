@@ -1,0 +1,26 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<component type="console-application">
+  <id>io.github.vitexsoftware.mcp-server-datovka</id>
+  <metadata_license>CC0-1.0</metadata_license>
+  <project_license>LGPL-3.0-or-later</project_license>
+  <name>mcp-server-datovka</name>
+  <summary>MCP server for the Czech ISDS Data Box system</summary>
+  <description>
+    <p>
+      An MCP (Model Context Protocol) server exposing the Czech ISDS
+      (Informační systém datových schránek) Data Box system as tools for
+      an LLM agent, built on fastmcp and python3-datovka.
+    </p>
+    <p>
+      Tools cover listing received and sent messages, fetching a full
+      message with its attachments, marking a message as read, and a
+      session health check. Login credentials are read once from the
+      environment at startup and are never tool parameters.
+    </p>
+  </description>
+  <url type="homepage">https://github.com/VitexSoftware/mcp-server-datovka</url>
+  <icon type="stock">mcp-server-datovka</icon>
+  <provides>
+    <binary>mcp-server-datovka</binary>
+  </provides>
+</component>

@@ -1,0 +1,5 @@
+mcp-server-datovka (0.1.0) unstable; urgency=medium
+
+  * Initial Debian packaging.
+
+ -- Vítězslav Dvořák <info@vitexsoftware.cz>  Thu, 16 Jul 2026 08:57:11 +0200
