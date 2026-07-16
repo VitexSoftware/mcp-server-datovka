@@ -1,0 +1,75 @@
+.TH MCP-SERVER-DATOVKA 1 "July 2026" "mcp-server-datovka" "User Commands"
+.SH NAME
+mcp-server-datovka \- MCP server exposing the Czech ISDS Data Box system
+.SH SYNOPSIS
+.B mcp-server-datovka
+.SH DESCRIPTION
+.B mcp-server-datovka
+is a Model Context Protocol (MCP) server that exposes the Czech ISDS
+("Datové schránky" / Data Box) system as tools for an LLM agent.
+It communicates over stdio using the MCP protocol and is intended to be
+launched by an MCP client (e.g. Claude Code, Claude Desktop, or any other
+MCP-compatible agent runtime), not run interactively.
+.PP
+It is built on
+.B fastmcp
+and
+.BR python3-datovka (7),
+a ctypes wrapper around
+.BR libdatovka (7).
+.SH TOOLS
+The server exposes the following MCP tools:
+.TP
+.B list_received_messages(limit=20)
+Summaries of received messages, most recent first.
+.TP
+.B list_sent_messages(limit=20)
+Summaries of sent messages, most recent first.
+.TP
+.B get_message(message_id, include_attachment_content=False)
+Full message with documents; attachment bytes are base64-encoded and only
+included on request.
+.TP
+.B mark_message_read(message_id)
+Mark a received message as read.
+.TP
+.B send_message(recipient_box_id, subject, attachments, ...)
+Send a new message with file attachments.
+.TP
+.B send_text_message(recipient_box_id, subject, body)
+Compose plain text as a PDF and send it as the message's main document.
+.TP
+.B find_data_box(query, limit=10)
+Look up a recipient's data box ID by name, trade name, or IČO, using
+the offline
+.B seznamds
+directory first and falling back to the live ISDS search API.
+.TP
+.B ping()
+Verify the session is alive.
+.SH ENVIRONMENT
+.TP
+.B DATOVKA_URL
+ISDS SOAP endpoint URL. Optional; defaults to the production endpoint
+(trailing slash required).
+.TP
+.B DATOVKA_USERNAME
+ISDS login username. Required.
+.TP
+.B DATOVKA_PASSWORD
+ISDS login password. Required.
+.SH FILES
+.TP
+.I /var/lib/seznamds/seznam_ds_*.xml
+Offline Czech data-box directory, used by
+.B find_data_box
+when the optional
+.B seznamds
+package is installed.
+.SH SEE ALSO
+.BR python3-datovka (7),
+.BR libdatovka (7)
+.br
+Project homepage: https://github.com/VitexSoftware/mcp-server-datovka
+.SH AUTHOR
+Vítězslav Dvořák <info@vitexsoftware.cz>

@@ -228,7 +228,29 @@ def ping() -> str:
     return "ok"
 
 
+_HELP_TEXT = """\
+usage: mcp-server-datovka
+
+MCP server exposing the Czech ISDS Data Box system ("Datove schranky") as
+tools, speaking the Model Context Protocol over stdio. Intended to be
+launched by an MCP client (Claude Code, Claude Desktop, etc.), not run
+interactively.
+
+Environment variables:
+  DATOVKA_URL       ISDS SOAP endpoint (optional, defaults to production)
+  DATOVKA_USERNAME  ISDS login username (required)
+  DATOVKA_PASSWORD  ISDS login password (required)
+
+See mcp-server-datovka(1) for the full list of exposed tools.
+"""
+
+
 def main() -> None:
+    import sys
+
+    if "-h" in sys.argv[1:] or "--help" in sys.argv[1:]:
+        print(_HELP_TEXT, end="")
+        return
     mcp.run()
 
 
