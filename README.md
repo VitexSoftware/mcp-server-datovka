@@ -1,5 +1,7 @@
 # mcp-server-datovka
 
+![mcp-server-datovka icon](mcp-server-datovka.svg)
+
 An [MCP](https://modelcontextprotocol.io) server exposing the Czech ISDS
 Data Box system ("Datové schránky") as tools, built on
 [fastmcp](https://gofastmcp.com) and
