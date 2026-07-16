@@ -3,14 +3,25 @@
 // Current version of this Pipeline https://github.com/VitexSoftware/BuildImages/blob/main/Test/Jenkinsfile
 
 String[] distributions = [
-			'debian:bookworm',
+			// 'debian:bookworm', // Disabled: python3-fastmcp is not published for this
+			//                    // suite yet ("virtual package and not provided by any
+			//                    // available package"). Re-enable once fastmcp's own
+			//                    // packaging covers bookworm.
 			'debian:trixie',
 			// 'debian:forky', // Disabled: Forky is still unstable/research-only.
 			//                 // The full Debian package ecosystem is not yet available for Forky.
 			//                 // Re-enable once the stack builds cleanly for Forky.
-			'ubuntu:jammy',
-			'ubuntu:noble',
-			'ubuntu:resolute',
+			// 'ubuntu:jammy', // Disabled: python3-fastmcp resolves but is not installable
+			//                 // on this suite (unsatisfiable transitive dependency).
+			//                 // Re-enable once fastmcp's own packaging covers jammy.
+			// 'ubuntu:noble', // Disabled: python3-fastmcp is not published for this
+			//                 // suite yet ("virtual package and not provided by any
+			//                 // available package"). Re-enable once fastmcp's own
+			//                 // packaging covers noble.
+			// 'ubuntu:resolute', // Disabled: python3-fastmcp resolves but is not
+			//                    // installable on this suite (unsatisfiable transitive
+			//                    // dependency). Re-enable once fastmcp's own packaging
+			//                    // covers resolute.
 ]
 
 String vendor = 'vitexsoftware'
