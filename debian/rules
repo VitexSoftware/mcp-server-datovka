@@ -3,6 +3,9 @@
 %:
 	dh $@ --with python3 --buildsystem=pybuild
 
+override_dh_auto_install:
+	dh_auto_install --destdir=debian/mcp-server-datovka
+
 override_dh_auto_test:
 	appstreamcli validate --no-net debian/mcp-server-datovka.metainfo.xml
 	# Skip pybuild's default unittest discovery: tests/test_server.py uses

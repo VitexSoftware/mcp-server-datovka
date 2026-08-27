@@ -1,3 +1,11 @@
+mcp-server-datovka (0.2.2) unstable; urgency=medium
+
+  * Add companion package mcprack-mcp-server-datovka: registers mcp-
+    server-datovka into the local mcprack MCP catalog on install
+    (postinst) and unregisters it on removal (prerm).
+
+ -- vitex <info@vitexsoftware.cz>  Thu, 27 Aug 2026 11:03:44 +0200
+
 mcp-server-datovka (0.2.1) unstable; urgency=medium
 
   * Add a hand-written manpage (mcp-server-datovka(1)) and a --help

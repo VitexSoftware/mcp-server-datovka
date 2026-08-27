@@ -47,3 +47,14 @@ Description: MCP server for the Czech ISDS Data Box system (datovka)
  The seznamds package (recommended) provides an offline directory of
  Czech data boxes for fast recipient lookups; without it, lookups
  fall back to the live, rate-limited ISDS search API.
+
+Package: mcprack-mcp-server-datovka
+Architecture: all
+Depends:
+ ${misc:Depends},
+ mcprack (>= 1.5.1),
+ mcp-server-datovka (= ${binary:Version}),
+Description: Registers Datovka MCP server into mcprack catalog
+ Companion package for mcp-server-datovka. Installing it registers
+ the mcp-server-datovka binary as an available MCP server in the
+ local mcprack instance; removing it unregisters it again.
