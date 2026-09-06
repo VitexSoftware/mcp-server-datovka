@@ -15,7 +15,7 @@ Data Box system ("Datové schránky") as tools, built on
 | `list_sent_messages(limit=20)` | Summaries of sent messages, most recent first |
 | `get_message(message_id, include_attachment_content=False)` | Full message with documents; attachment bytes are base64-encoded and only included on request |
 | `mark_message_read(message_id)` | Mark a received message as read |
-| `send_message(recipient_box_id, subject, attachments, ...)` | Send a new message; `attachments` is a list of `{filename, mime_type, content_base64, is_main}` dicts, exactly one of which must be `is_main=True` |
+| `send_message(recipient_box_id, subject, attachments, ...)` | Send a new message; `attachments` is a list of dicts with `filename`, `mime_type`, `is_main`, and either `content_base64` or `file_path` (a path on the machine running the server — preferred for anything but tiny files, since the bytes never have to pass through the calling LLM's context), exactly one of which must be `is_main=True` |
 | `send_text_message(recipient_box_id, subject, body)` | Compose plain text as a PDF and send it as the message's main document — no existing file needed |
 | `find_data_box(query, limit=10)` | Look up a recipient's data box ID by name, trade name, or IČO. Uses the offline `seznamds` directory first (fast, unlimited), falling back to the live, rate-limited ISDS search API if it's absent or finds nothing. The response includes `source` and `data_age_days` so a stale offline snapshot doesn't get presented as current. |
 | `ping()` | Verify the session is alive |

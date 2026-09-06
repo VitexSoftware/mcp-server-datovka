@@ -9,9 +9,11 @@ data box without ever seeing or choosing the login credentials.
 from __future__ import annotations
 
 import base64
+import mimetypes
 import os
 from datetime import datetime
 from functools import lru_cache
+from pathlib import Path
 from typing import Any
 
 from datovka import DatovkaClient, DatovkaError, OutgoingDocument
@@ -124,22 +126,47 @@ def send_message(
     """Send a new message with file attachments to a data box.
 
     ``attachments`` is a list of dicts, each with keys ``filename``,
-    ``mime_type``, ``content_base64`` (the file content, base64-encoded),
-    and ``is_main`` (bool). Exactly one attachment must have
-    ``is_main=True`` -- this is the ISDS API's own requirement, not a
-    limitation of this tool. Total attachment size is capped by ISDS at
-    50 MB. For sending plain text without an existing file, use
-    send_text_message instead.
+    ``mime_type``, ``is_main`` (bool), and exactly one of:
+
+    - ``content_base64``: the file content, base64-encoded. Fine for small
+      files, but each character has to pass through the calling LLM's
+      context, so this gets impractical (slow, expensive, and risks silent
+      corruption) for anything past a few hundred KB.
+    - ``file_path``: an absolute path to the file on the machine running
+      this server. Preferred for anything but tiny attachments -- the
+      server reads the bytes itself, so the content never has to enter the
+      conversation. ``filename``/``mime_type`` are optional with
+      ``file_path``: they default to the path's basename and a guess from
+      its extension (falling back to ``application/octet-stream``).
+
+    Exactly one attachment must have ``is_main=True`` -- this is the ISDS
+    API's own requirement, not a limitation of this tool. Total attachment
+    size is capped by ISDS at 50 MB. For sending plain text without an
+    existing file, use send_text_message instead.
     """
-    documents = [
-        OutgoingDocument(
-            filename=a["filename"],
-            mime_type=a["mime_type"],
-            data=base64.b64decode(a["content_base64"]),
-            is_main=a.get("is_main", False),
+    documents = []
+    for a in attachments:
+        if "file_path" in a:
+            path = Path(a["file_path"]).expanduser()
+            if not path.is_file():
+                raise RuntimeError(f"file_path not found: {path}")
+            data = path.read_bytes()
+            filename = a.get("filename") or path.name
+            mime_type = a.get("mime_type") or mimetypes.guess_type(path.name)[0] or "application/octet-stream"
+        elif "content_base64" in a:
+            data = base64.b64decode(a["content_base64"])
+            filename = a["filename"]
+            mime_type = a["mime_type"]
+        else:
+            raise RuntimeError("Each attachment needs either 'file_path' or 'content_base64'.")
+        documents.append(
+            OutgoingDocument(
+                filename=filename,
+                mime_type=mime_type,
+                data=data,
+                is_main=a.get("is_main", False),
+            )
         )
-        for a in attachments
-    ]
     try:
         _get_client().send_message(
             recipient_box_id,
