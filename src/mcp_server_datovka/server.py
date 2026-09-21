@@ -27,11 +27,6 @@ from fastmcp import FastMCP
 from . import seznamds
 from .pdf import text_to_pdf
 
-# Production username/password SOAP endpoint (trailing slash required by libdatovka).
-# Testing sandbox (prefer for development): https://ws1.czebox.cz/
-#   or the newer alias https://ws1.datovka-test.gov.cz/
-DEFAULT_TEST_URL = "https://ws1.czebox.cz/"
-
 mcp = FastMCP("Datovka")
 
 

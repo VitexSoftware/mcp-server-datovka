@@ -1,4 +1,4 @@
-.TH MCP-SERVER-DATOVKA 1 "July 2026" "mcp-server-datovka" "User Commands"
+.TH MCP-SERVER-DATOVKA 1 "September 2026" "mcp-server-datovka" "User Commands"
 .SH NAME
 mcp-server-datovka \- MCP server exposing the Czech ISDS Data Box system
 .SH SYNOPSIS
@@ -51,13 +51,25 @@ Verify the session is alive.
 .TP
 .B DATOVKA_URL
 ISDS SOAP endpoint URL. Optional; defaults to the production endpoint
-(trailing slash required).
+https://ws1.mojedatovaschranka.cz/
+(trailing slash required). For the public testing sandbox use
+https://ws1.czebox.cz/
+(or https://ws1.datovka-test.gov.cz/).
 .TP
 .B DATOVKA_USERNAME
 ISDS login username. Required.
 .TP
 .B DATOVKA_PASSWORD
 ISDS login password. Required.
+.TP
+.B READ_ONLY
+When set to true, 1, or yes (the default), write tools
+.BR send_message ,
+.BR send_text_message ,
+and
+.B mark_message_read
+raise an error instead of mutating the data box. Set to false only when
+you intentionally want the MCP client to send messages or mark them read.
 .SH FILES
 .TP
 .I /var/lib/seznamds/seznam_ds_*.xml
