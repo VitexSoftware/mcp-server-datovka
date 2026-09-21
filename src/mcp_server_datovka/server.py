@@ -4,6 +4,9 @@ Credentials are read once from the environment at startup
 (``DATOVKA_URL``, ``DATOVKA_USERNAME``, ``DATOVKA_PASSWORD``) and never
 exposed as tool parameters, so an LLM driving this server can act on a
 data box without ever seeing or choosing the login credentials.
+
+Write tools (``send_message``, ``send_text_message``, ``mark_message_read``)
+are blocked when ``READ_ONLY`` is enabled (default: true).
 """
 
 from __future__ import annotations
@@ -24,7 +27,23 @@ from fastmcp import FastMCP
 from . import seznamds
 from .pdf import text_to_pdf
 
+# Production username/password SOAP endpoint (trailing slash required by libdatovka).
+# Testing sandbox (prefer for development): https://ws1.czebox.cz/
+#   or the newer alias https://ws1.datovka-test.gov.cz/
+DEFAULT_TEST_URL = "https://ws1.czebox.cz/"
+
 mcp = FastMCP("Datovka")
+
+
+def is_read_only() -> bool:
+    """Return True when write tools must refuse to mutate the data box."""
+    return os.getenv("READ_ONLY", "true").lower() in ("true", "1", "yes")
+
+
+def validate_read_only() -> None:
+    """Raise if the server is in read-only mode (write tools must call this first)."""
+    if is_read_only():
+        raise ValueError("Server is in read-only mode - write operations are not allowed")
 
 
 def _iso(value: datetime | None) -> str | None:
@@ -125,6 +144,8 @@ def send_message(
 ) -> str:
     """Send a new message with file attachments to a data box.
 
+    Blocked when ``READ_ONLY`` is enabled (default).
+
     ``attachments`` is a list of dicts, each with keys ``filename``,
     ``mime_type``, ``is_main`` (bool), and exactly one of:
 
@@ -144,6 +165,7 @@ def send_message(
     size is capped by ISDS at 50 MB. For sending plain text without an
     existing file, use send_text_message instead.
     """
+    validate_read_only()
     documents = []
     for a in attachments:
         if "file_path" in a:
@@ -184,12 +206,15 @@ def send_message(
 def send_text_message(recipient_box_id: str, subject: str, body: str) -> str:
     """Compose plain text as a PDF and send it as a new message.
 
+    Blocked when ``READ_ONLY`` is enabled (default).
+
     Convenience wrapper around send_message for the common case of writing
     a message from scratch: renders ``body`` (with ``subject`` as a
     heading) to a PDF and sends it as the message's single, main document.
     Use send_message directly instead if you already have file(s) to
     attach, or need more than one document.
     """
+    validate_read_only()
     pdf_bytes = text_to_pdf(subject, body)
     document = OutgoingDocument(
         filename=f"{subject}.pdf",
@@ -237,7 +262,11 @@ def find_data_box(query: str, limit: int = 10) -> dict[str, Any]:
 
 @mcp.tool
 def mark_message_read(message_id: str) -> str:
-    """Mark a received message as read."""
+    """Mark a received message as read.
+
+    Blocked when ``READ_ONLY`` is enabled (default).
+    """
+    validate_read_only()
     try:
         _get_client().mark_as_read(message_id)
     except DatovkaError as exc:
@@ -265,8 +294,10 @@ interactively.
 
 Environment variables:
   DATOVKA_URL       ISDS SOAP endpoint (optional, defaults to production)
+                    Testing: https://ws1.czebox.cz/  (trailing slash required)
   DATOVKA_USERNAME  ISDS login username (required)
   DATOVKA_PASSWORD  ISDS login password (required)
+  READ_ONLY         Block send/mark-read tools when true/1/yes (default: true)
 
 See mcp-server-datovka(1) for the full list of exposed tools.
 """

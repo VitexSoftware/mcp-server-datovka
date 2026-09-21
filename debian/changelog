@@ -1,3 +1,15 @@
+mcp-server-datovka (0.2.4) unstable; urgency=medium
+
+  * Add READ_ONLY mode (default true) that blocks send_message,
+    send_text_message, and mark_message_read — matching the AbraFlexi MCP
+    safety posture so an LLM cannot mutate a production data box by
+    accident.
+  * Add tests/live_capability_scenario.py for live read audits and write
+    guards; document DATOVKA_URL testing vs production endpoints and ship
+    .env.example.
+
+ -- Vítězslav Dvořák <info@vitexsoftware.cz>  Mon, 21 Sep 2026 11:35:00 +0200
+
 mcp-server-datovka (0.2.3) unstable; urgency=medium
 
   * Add file_path support to send_message attachments, so large files no

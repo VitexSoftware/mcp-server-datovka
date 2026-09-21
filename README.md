@@ -14,9 +14,9 @@ Data Box system ("Datové schránky") as tools, built on
 | `list_received_messages(limit=20)` | Summaries of received messages, most recent first |
 | `list_sent_messages(limit=20)` | Summaries of sent messages, most recent first |
 | `get_message(message_id, include_attachment_content=False)` | Full message with documents; attachment bytes are base64-encoded and only included on request |
-| `mark_message_read(message_id)` | Mark a received message as read |
-| `send_message(recipient_box_id, subject, attachments, ...)` | Send a new message; `attachments` is a list of dicts with `filename`, `mime_type`, `is_main`, and either `content_base64` or `file_path` (a path on the machine running the server — preferred for anything but tiny files, since the bytes never have to pass through the calling LLM's context), exactly one of which must be `is_main=True` |
-| `send_text_message(recipient_box_id, subject, body)` | Compose plain text as a PDF and send it as the message's main document — no existing file needed |
+| `mark_message_read(message_id)` | Mark a received message as read (**write** — blocked when `READ_ONLY=true`) |
+| `send_message(recipient_box_id, subject, attachments, ...)` | Send a new message; `attachments` is a list of dicts with `filename`, `mime_type`, `is_main`, and either `content_base64` or `file_path` (a path on the machine running the server — preferred for anything but tiny files, since the bytes never have to pass through the calling LLM's context), exactly one of which must be `is_main=True` (**write** — blocked when `READ_ONLY=true`) |
+| `send_text_message(recipient_box_id, subject, body)` | Compose plain text as a PDF and send it as the message's main document — no existing file needed (**write** — blocked when `READ_ONLY=true`) |
 | `find_data_box(query, limit=10)` | Look up a recipient's data box ID by name, trade name, or IČO. Uses the offline `seznamds` directory first (fast, unlimited), falling back to the live, rate-limited ISDS search API if it's absent or finds nothing. The response includes `source` and `data_age_days` so a stale offline snapshot doesn't get presented as current. |
 | `ping()` | Verify the session is alive |
 
@@ -28,13 +28,26 @@ render correctly.
 ## Configuration
 
 Credentials are read once from the environment at startup and are never
-tool parameters, so the LLM driving the server can't see or choose them:
+tool parameters, so the LLM driving the server can't see or choose them.
+Copy `.env.example` as a starting point:
 
 ```bash
-export DATOVKA_URL="https://ws1.mojedatovaschranka.cz/"  # optional, this is the default; trailing slash required
+cp .env.example .env
+```
+
+```bash
+export DATOVKA_URL="https://ws1.mojedatovaschranka.cz/"  # optional; trailing slash required
 export DATOVKA_USERNAME="..."
 export DATOVKA_PASSWORD="..."
+export READ_ONLY=true   # default; set false only when you intentionally want to send/mark-read
 ```
+
+| Variable | Default | Notes |
+|---|---|---|
+| `DATOVKA_URL` | `https://ws1.mojedatovaschranka.cz/` | Production username/password SOAP endpoint. Prefer the testing sandbox `https://ws1.czebox.cz/` (or `https://ws1.datovka-test.gov.cz/`) when you have a test box. Trailing slash required. |
+| `DATOVKA_USERNAME` | *(required)* | ISDS login username |
+| `DATOVKA_PASSWORD` | *(required)* | ISDS login password |
+| `READ_ONLY` | `true` | When `true`/`1`/`yes`, `send_message`, `send_text_message`, and `mark_message_read` raise `ValueError` |
 
 Install the optional `seznamds` package for fast, unlimited recipient
 lookups via `find_data_box`:
@@ -57,6 +70,27 @@ Or point an MCP client at it directly:
 ```bash
 python -m mcp_server_datovka.server
 ```
+
+## Testing
+
+Structural tests (no ISDS login):
+
+```bash
+pytest tests/test_server.py
+```
+
+Live capability scenario (all read tools + `READ_ONLY` write guards):
+
+```bash
+DATOVKA_USERNAME=... DATOVKA_PASSWORD=... \
+  python tests/live_capability_scenario.py
+
+# Prefer testing sandbox when available:
+DATOVKA_URL=https://ws1.czebox.cz/ DATOVKA_USERNAME=... DATOVKA_PASSWORD=... \
+  python tests/live_capability_scenario.py
+```
+
+Exit code is 0 only when every non-skipped check passes.
 
 ## Requirements
 

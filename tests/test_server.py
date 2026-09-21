@@ -36,6 +36,7 @@ def test_tool_call_requires_credentials(monkeypatch: pytest.MonkeyPatch) -> None
 
 
 def test_send_message_requires_credentials(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setenv("READ_ONLY", "false")
     monkeypatch.delenv("DATOVKA_USERNAME", raising=False)
     monkeypatch.delenv("DATOVKA_PASSWORD", raising=False)
     from mcp_server_datovka import server
@@ -49,9 +50,26 @@ def test_send_message_requires_credentials(monkeypatch: pytest.MonkeyPatch) -> N
         )
 
 
+def test_write_tools_blocked_when_read_only(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setenv("READ_ONLY", "true")
+    from mcp_server_datovka import server
+
+    with pytest.raises(ValueError, match="read-only"):
+        send_message(
+            "5drr7us",
+            "Test",
+            [{"filename": "a.pdf", "mime_type": "application/pdf", "content_base64": "eA==", "is_main": True}],
+        )
+    with pytest.raises(ValueError, match="read-only"):
+        send_text_message("5drr7us", "Test", "body")
+    with pytest.raises(ValueError, match="read-only"):
+        server.mark_message_read("1")
+
+
 def test_send_message_file_path_requires_credentials(
     monkeypatch: pytest.MonkeyPatch, tmp_path: "os.PathLike[str]"
 ) -> None:
+    monkeypatch.setenv("READ_ONLY", "false")
     monkeypatch.delenv("DATOVKA_USERNAME", raising=False)
     monkeypatch.delenv("DATOVKA_PASSWORD", raising=False)
     from mcp_server_datovka import server
@@ -91,7 +109,10 @@ def test_send_message_file_path_infers_filename_and_mime_type(tmp_path: "os.Path
     assert doc.data == b"%PDF-1.4 fake content"
 
 
-def test_send_message_missing_file_path_raises(tmp_path: "os.PathLike[str]") -> None:
+def test_send_message_missing_file_path_raises(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: "os.PathLike[str]"
+) -> None:
+    monkeypatch.setenv("READ_ONLY", "false")
     with pytest.raises(RuntimeError, match="file_path not found"):
         send_message(
             "5drr7us",
@@ -100,7 +121,8 @@ def test_send_message_missing_file_path_raises(tmp_path: "os.PathLike[str]") -> 
         )
 
 
-def test_send_message_attachment_without_source_raises() -> None:
+def test_send_message_attachment_without_source_raises(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setenv("READ_ONLY", "false")
     with pytest.raises(RuntimeError, match="file_path.*content_base64"):
         send_message(
             "5drr7us",
@@ -110,6 +132,7 @@ def test_send_message_attachment_without_source_raises() -> None:
 
 
 def test_send_text_message_requires_credentials(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setenv("READ_ONLY", "false")
     monkeypatch.delenv("DATOVKA_USERNAME", raising=False)
     monkeypatch.delenv("DATOVKA_PASSWORD", raising=False)
     from mcp_server_datovka import server
