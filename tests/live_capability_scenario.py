@@ -183,6 +183,7 @@ def run_scenario(
         "list_received_messages",
         "list_sent_messages",
         "get_message",
+        "get_sent_message",
         "mark_message_read",
         "send_message",
         "send_text_message",
@@ -219,12 +220,15 @@ def run_scenario(
     if isinstance(recv, list) and recv and isinstance(recv[0], dict):
         message_id = recv[0].get("message_id")
 
-    _run_check(
+    sent = _run_check(
         report,
         "list_sent_messages",
         "tool",
         lambda: server.list_sent_messages(limit=5),
     )
+    sent_message_id = None
+    if isinstance(sent, list) and sent and isinstance(sent[0], dict):
+        sent_message_id = sent[0].get("message_id")
 
     # ---- message detail ----
     _run_check(
@@ -253,6 +257,25 @@ def run_scenario(
                 name="get_message:content_base64_present",
                 kind="meta",
                 ok=ok,
+                detail=f"documents={len(docs)} has_content_base64={has_b64}",
+            )
+        )
+
+    sent_with_content = _run_check(
+        report,
+        "get_sent_message:with_content",
+        "tool",
+        lambda: server.get_sent_message(str(sent_message_id), include_attachment_content=True),
+        skip_reason=None if sent_message_id else "no sent message id",
+    )
+    if sent_with_content is not None and isinstance(sent_with_content, dict):
+        docs = sent_with_content.get("documents") or []
+        has_b64 = any(isinstance(d, dict) and d.get("content_base64") for d in docs)
+        report.add(
+            CheckResult(
+                name="get_sent_message:content_base64_present",
+                kind="meta",
+                ok=(not docs) or has_b64,
                 detail=f"documents={len(docs)} has_content_base64={has_b64}",
             )
         )

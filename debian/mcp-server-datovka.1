@@ -27,8 +27,11 @@ Summaries of received messages, most recent first.
 Summaries of sent messages, most recent first.
 .TP
 .B get_message(message_id, include_attachment_content=False)
-Full message with documents; attachment bytes are base64-encoded and only
+Full received message with documents; attachment bytes are base64-encoded and only
 included on request.
+.TP
+.B get_sent_message(message_id, include_attachment_content=False)
+Same as get_message, for sent messages (IDs from list_sent_messages).
 .TP
 .B mark_message_read(message_id)
 Mark a received message as read.

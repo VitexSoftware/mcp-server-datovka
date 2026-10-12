@@ -17,6 +17,7 @@ def test_tools_are_registered() -> None:
         "list_received_messages",
         "list_sent_messages",
         "get_message",
+        "get_sent_message",
         "mark_message_read",
         "send_message",
         "send_text_message",
@@ -140,3 +141,63 @@ def test_send_text_message_requires_credentials(monkeypatch: pytest.MonkeyPatch)
     server._get_client.cache_clear()
     with pytest.raises(RuntimeError, match="DATOVKA_USERNAME"):
         send_text_message("5drr7us", "Test", "Ahoj, toto je zkušební zpráva s háčky a čárkami.")
+
+
+def test_get_sent_message_requires_credentials(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.delenv("DATOVKA_USERNAME", raising=False)
+    monkeypatch.delenv("DATOVKA_PASSWORD", raising=False)
+    from mcp_server_datovka import server
+
+    server._get_client.cache_clear()
+    with pytest.raises(RuntimeError, match="DATOVKA_USERNAME"):
+        server.get_sent_message("1")
+
+
+def test_get_sent_message_uses_signed_sent_download(monkeypatch: pytest.MonkeyPatch) -> None:
+    from datovka.models import Document, Envelope, Message
+
+    from mcp_server_datovka import server
+
+    calls: list[str] = []
+
+    def fake_download(ctx, message_id, message_pp):  # noqa: ANN001
+        calls.append(message_id.decode("utf-8"))
+        return server._capi.IE_SUCCESS
+
+    message = Message(
+        envelope=Envelope(
+            message_id="42",
+            sender_box_id=None,
+            sender_name=None,
+            recipient_box_id="abc1234",
+            recipient_name=None,
+            subject="Test",
+            delivery_time=None,
+            acceptance_time=None,
+            status=None,
+            attachment_size_kb=None,
+            message_type=None,
+        ),
+        documents=[Document(filename="a.pdf", mime_type="application/pdf", is_main=True, data=b"x")],
+    )
+
+    class FakeClient:
+        _ctx = None
+
+        def _require_login(self) -> None:
+            pass
+
+        def _message_from_struct(self, message_ptr, message_id: str) -> Message:  # noqa: ANN001
+            assert message_id == "42"
+            return message
+
+    monkeypatch.setattr(server._capi.lib, "isds_get_signed_sent_message", fake_download)
+    monkeypatch.setattr(server._capi.lib, "isds_message_free", lambda pp: None)
+    monkeypatch.setattr(server, "_get_client", lambda: FakeClient())
+
+    result = server.get_sent_message("42", include_attachment_content=True)
+
+    assert calls == ["42"]
+    assert result["envelope"]["message_id"] == "42"
+    assert result["documents"][0]["filename"] == "a.pdf"
+    assert result["documents"][0]["content_base64"] == "eA=="
