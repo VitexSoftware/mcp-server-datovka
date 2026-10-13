@@ -201,3 +201,22 @@ def test_get_sent_message_uses_signed_sent_download(monkeypatch: pytest.MonkeyPa
     assert result["envelope"]["message_id"] == "42"
     assert result["documents"][0]["filename"] == "a.pdf"
     assert result["documents"][0]["content_base64"] == "eA=="
+
+
+def test_every_tool_has_title_and_annotations() -> None:
+    for tool in asyncio.run(mcp.list_tools()):
+        assert tool.title and tool.title != tool.name, tool.name
+        a = tool.annotations
+        assert a is not None, tool.name
+        for hint in (
+            "read_only_hint",
+            "destructive_hint",
+            "idempotent_hint",
+            "open_world_hint",
+        ):
+            assert getattr(a, hint) is not None, f"{tool.name}: {hint} unset"
+        assert not (a.read_only_hint and a.destructive_hint), tool.name
+        if tool.name.startswith(("get_", "list_", "find_")):
+            assert a.read_only_hint is True, tool.name
+        if tool.name.startswith("send_"):
+            assert a.destructive_hint is True, tool.name

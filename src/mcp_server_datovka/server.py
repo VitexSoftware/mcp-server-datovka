@@ -25,9 +25,31 @@ from datovka import _capi
 from datovka.client import DEFAULT_URL, _check
 from datovka.models import Document, Envelope, Message
 from fastmcp import FastMCP
+from mcp.types import ToolAnnotations
 
 from . import seznamds
 from .pdf import text_to_pdf
+
+READ_ONLY_ANNOTATIONS = ToolAnnotations(
+    read_only_hint=True,
+    destructive_hint=False,
+    idempotent_hint=True,
+    open_world_hint=True,
+)
+# Idempotent state change that is easily reversible (read flag).
+ASSIGN_ANNOTATIONS = ToolAnnotations(
+    read_only_hint=False,
+    destructive_hint=False,
+    idempotent_hint=True,
+    open_world_hint=True,
+)
+# Sends a legally binding, irreversible data box message; each call sends again.
+SEND_ANNOTATIONS = ToolAnnotations(
+    read_only_hint=False,
+    destructive_hint=True,
+    idempotent_hint=False,
+    open_world_hint=True,
+)
 
 mcp = FastMCP("Datovka")
 
@@ -122,7 +144,10 @@ def _fetch_sent_message(client: DatovkaClient, message_id: str) -> Message:
             _capi.lib.isds_message_free(byref(message_ptr))
 
 
-@mcp.tool
+@mcp.tool(
+    title="List Received Messages",
+    annotations=READ_ONLY_ANNOTATIONS,
+)
 def list_received_messages(limit: int = 20) -> list[dict[str, Any]]:
     """List summaries of received data box messages, most recent first."""
     try:
@@ -132,7 +157,10 @@ def list_received_messages(limit: int = 20) -> list[dict[str, Any]]:
     return [_envelope_to_dict(e) for e in envelopes]
 
 
-@mcp.tool
+@mcp.tool(
+    title="List Sent Messages",
+    annotations=READ_ONLY_ANNOTATIONS,
+)
 def list_sent_messages(limit: int = 20) -> list[dict[str, Any]]:
     """List summaries of sent data box messages, most recent first."""
     try:
@@ -142,7 +170,10 @@ def list_sent_messages(limit: int = 20) -> list[dict[str, Any]]:
     return [_envelope_to_dict(e) for e in envelopes]
 
 
-@mcp.tool
+@mcp.tool(
+    title="Get Message",
+    annotations=READ_ONLY_ANNOTATIONS,
+)
 def get_message(message_id: str, include_attachment_content: bool = False) -> dict[str, Any]:
     """Fetch a received message in full: envelope plus its documents.
 
@@ -159,7 +190,10 @@ def get_message(message_id: str, include_attachment_content: bool = False) -> di
     return _message_to_dict(message, include_content=include_attachment_content)
 
 
-@mcp.tool
+@mcp.tool(
+    title="Get Sent Message",
+    annotations=READ_ONLY_ANNOTATIONS,
+)
 def get_sent_message(message_id: str, include_attachment_content: bool = False) -> dict[str, Any]:
     """Fetch a sent message in full: envelope plus its documents.
 
@@ -176,7 +210,10 @@ def get_sent_message(message_id: str, include_attachment_content: bool = False) 
     return _message_to_dict(message, include_content=include_attachment_content)
 
 
-@mcp.tool
+@mcp.tool(
+    title="Send Message",
+    annotations=SEND_ANNOTATIONS,
+)
 def send_message(
     recipient_box_id: str,
     subject: str,
@@ -244,7 +281,10 @@ def send_message(
     return f"Message sent to {recipient_box_id}."
 
 
-@mcp.tool
+@mcp.tool(
+    title="Send Text Message",
+    annotations=SEND_ANNOTATIONS,
+)
 def send_text_message(recipient_box_id: str, subject: str, body: str) -> str:
     """Compose plain text as a PDF and send it as a new message.
 
@@ -271,7 +311,10 @@ def send_text_message(recipient_box_id: str, subject: str, body: str) -> str:
     return f"Message sent to {recipient_box_id}."
 
 
-@mcp.tool
+@mcp.tool(
+    title="Find Data Box",
+    annotations=READ_ONLY_ANNOTATIONS,
+)
 def find_data_box(query: str, limit: int = 10) -> dict[str, Any]:
     """Look up a data box ID by name, trade name, or IČO (company ID).
 
@@ -302,7 +345,10 @@ def find_data_box(query: str, limit: int = 10) -> dict[str, Any]:
     return {"source": "isds-live", "data_age_days": 0, "stale": False, "results": live_results}
 
 
-@mcp.tool
+@mcp.tool(
+    title="Mark Message Read",
+    annotations=ASSIGN_ANNOTATIONS,
+)
 def mark_message_read(message_id: str) -> str:
     """Mark a received message as read.
 
@@ -316,7 +362,10 @@ def mark_message_read(message_id: str) -> str:
     return f"Message {message_id} marked as read."
 
 
-@mcp.tool
+@mcp.tool(
+    title="Ping",
+    annotations=READ_ONLY_ANNOTATIONS,
+)
 def ping() -> str:
     """Verify the data box session is alive and the server is reachable."""
     try:
