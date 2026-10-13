@@ -14,13 +14,15 @@ from __future__ import annotations
 import base64
 import mimetypes
 import os
+from ctypes import POINTER, byref
 from datetime import datetime
 from functools import lru_cache
 from pathlib import Path
 from typing import Any
 
 from datovka import DatovkaClient, DatovkaError, OutgoingDocument
-from datovka.client import DEFAULT_URL
+from datovka import _capi
+from datovka.client import DEFAULT_URL, _check
 from datovka.models import Document, Envelope, Message
 from fastmcp import FastMCP
 
@@ -93,6 +95,33 @@ def _get_client() -> DatovkaClient:
     return DatovkaClient(url, username, password)
 
 
+def _fetch_sent_message(client: DatovkaClient, message_id: str) -> Message:
+    """Download a sent message in full, including its documents.
+
+    python3-datovka (<= 0.2.0) binds libdatovka's
+    ``isds_get_signed_sent_message`` but has no high-level wrapper for it,
+    so call the binding directly and reuse the client's own struct parsing.
+    ISDS only offers sent messages in signed (CMS) form; libdatovka unwraps
+    the signature and parses envelope and documents for us.
+
+    TODO: this belongs in python3-datovka as a public
+    ``DatovkaClient.get_sent_message`` next to ``get_received_message``.
+    Once it is upstreamed, switch to it (raising the minimum ``datovka``
+    version) and drop this reliance on private internals.
+    """
+    client._require_login()
+    message_ptr = POINTER(_capi.IsdsMessage)()
+    code = _capi.lib.isds_get_signed_sent_message(
+        client._ctx, message_id.encode("utf-8"), byref(message_ptr)
+    )
+    try:
+        _check(client._ctx, code, "failed to fetch sent message")
+        return client._message_from_struct(message_ptr, message_id)
+    finally:
+        if message_ptr:
+            _capi.lib.isds_message_free(byref(message_ptr))
+
+
 @mcp.tool
 def list_received_messages(limit: int = 20) -> list[dict[str, Any]]:
     """List summaries of received data box messages, most recent first."""
@@ -117,6 +146,7 @@ def list_sent_messages(limit: int = 20) -> list[dict[str, Any]]:
 def get_message(message_id: str, include_attachment_content: bool = False) -> dict[str, Any]:
     """Fetch a received message in full: envelope plus its documents.
 
+    For messages from list_sent_messages, use get_sent_message instead.
     By default, attachment content is omitted (only filename/mime_type/size
     are returned) to avoid flooding the response with large base64 blobs.
     Set include_attachment_content=True to fetch the actual file bytes,
@@ -124,6 +154,23 @@ def get_message(message_id: str, include_attachment_content: bool = False) -> di
     """
     try:
         message = _get_client().get_received_message(message_id)
+    except DatovkaError as exc:
+        raise RuntimeError(str(exc)) from exc
+    return _message_to_dict(message, include_content=include_attachment_content)
+
+
+@mcp.tool
+def get_sent_message(message_id: str, include_attachment_content: bool = False) -> dict[str, Any]:
+    """Fetch a sent message in full: envelope plus its documents.
+
+    Counterpart of get_message for messages listed by list_sent_messages.
+    By default, attachment content is omitted (only filename/mime_type/size
+    are returned) to avoid flooding the response with large base64 blobs.
+    Set include_attachment_content=True to fetch the actual file bytes,
+    base64-encoded.
+    """
+    try:
+        message = _fetch_sent_message(_get_client(), message_id)
     except DatovkaError as exc:
         raise RuntimeError(str(exc)) from exc
     return _message_to_dict(message, include_content=include_attachment_content)

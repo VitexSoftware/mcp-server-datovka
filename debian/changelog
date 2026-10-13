@@ -1,3 +1,12 @@
+mcp-server-datovka (0.2.5) unstable; urgency=medium
+
+  * Add get_sent_message tool: download a sent message in full (envelope
+    plus documents), mirroring get_message for received messages. Uses
+    libdatovka's isds_get_signed_sent_message, which python3-datovka binds
+    but does not yet wrap.
+
+ -- David Esner <esnerda@gmail.com>  Mon, 12 Oct 2026 12:00:00 +0200
+
 mcp-server-datovka (0.2.4) unstable; urgency=medium
 
   * Add READ_ONLY mode (default true) that blocks send_message,
