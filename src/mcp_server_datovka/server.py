@@ -14,15 +14,15 @@ from __future__ import annotations
 import base64
 import mimetypes
 import os
-from ctypes import POINTER, byref
-from datetime import datetime
+from ctypes import POINTER, byref, c_ulong
+from datetime import datetime, timezone
 from functools import lru_cache
 from pathlib import Path
 from typing import Any
 
 from datovka import DatovkaClient, DatovkaError, OutgoingDocument
 from datovka import _capi
-from datovka.client import DEFAULT_URL, _check
+from datovka.client import DEFAULT_URL, _check, _envelope_from_struct, _iter_isds_list
 from datovka.models import Document, Envelope, Message
 from fastmcp import FastMCP
 from mcp.types import ToolAnnotations
@@ -144,14 +144,73 @@ def _fetch_sent_message(client: DatovkaClient, message_id: str) -> Message:
             _capi.lib.isds_message_free(byref(message_ptr))
 
 
+def _parse_date(value: str | None, *, end_of_day: bool = False) -> _capi.IsdsTimeval | None:
+    """Turn an ISO date/datetime (UTC if no zone given) into an ISDS timeval."""
+    if not value:
+        return None
+    try:
+        moment = datetime.fromisoformat(value)
+    except ValueError as exc:
+        raise ValueError(f"Invalid date {value!r}; use ISO format, e.g. 2026-01-31") from exc
+    if len(value) <= 10 and end_of_day:
+        moment = moment.replace(hour=23, minute=59, second=59)
+    if moment.tzinfo is None:
+        moment = moment.replace(tzinfo=timezone.utc)
+    return _capi.IsdsTimeval(int(moment.timestamp()), 0)
+
+
+def _list_envelopes(
+    list_fn: Any, limit: int, from_date: str | None, to_date: str | None
+) -> list[Envelope]:
+    """List envelopes, optionally within a date range.
+
+    Without a range ISDS only returns roughly the last 90 days, and
+    python3-datovka's ``list_*_messages`` cannot pass a range.
+    """
+    client = _get_client()
+    client._require_login()
+    start = _parse_date(from_date)
+    end = _parse_date(to_date, end_of_day=True)
+    number = c_ulong(limit or 0)
+    head = POINTER(_capi.IsdsList)()
+    code = list_fn(
+        client._ctx,
+        byref(start) if start is not None else None,
+        byref(end) if end is not None else None,
+        None,
+        _capi.MESSAGESTATE_ANY,
+        0,
+        byref(number),
+        byref(head),
+    )
+    try:
+        _check(client._ctx, code, "failed to list messages")
+        return [
+            _envelope_from_struct(msg.contents.envelope)
+            for msg in _iter_isds_list(head, _capi.IsdsMessage)
+        ]
+    finally:
+        if head:
+            _capi.lib.isds_list_free(byref(head))
+
+
 @mcp.tool(
     title="List Received Messages",
     annotations=READ_ONLY_ANNOTATIONS,
 )
-def list_received_messages(limit: int = 20) -> list[dict[str, Any]]:
-    """List summaries of received data box messages, most recent first."""
+def list_received_messages(
+    limit: int = 20, from_date: str | None = None, to_date: str | None = None
+) -> list[dict[str, Any]]:
+    """List summaries of received data box messages, most recent first.
+
+    ``from_date`` / ``to_date`` (ISO, e.g. ``2024-10-01``; ``to_date`` is
+    inclusive) select a date range. Without them ISDS returns only about the
+    last 90 days, so pass ``from_date`` to reach older messages.
+    """
     try:
-        envelopes = _get_client().list_received_messages(limit=limit)
+        envelopes = _list_envelopes(
+            _capi.lib.isds_get_list_of_received_messages, limit, from_date, to_date
+        )
     except DatovkaError as exc:
         raise RuntimeError(str(exc)) from exc
     return [_envelope_to_dict(e) for e in envelopes]
@@ -161,10 +220,17 @@ def list_received_messages(limit: int = 20) -> list[dict[str, Any]]:
     title="List Sent Messages",
     annotations=READ_ONLY_ANNOTATIONS,
 )
-def list_sent_messages(limit: int = 20) -> list[dict[str, Any]]:
-    """List summaries of sent data box messages, most recent first."""
+def list_sent_messages(
+    limit: int = 20, from_date: str | None = None, to_date: str | None = None
+) -> list[dict[str, Any]]:
+    """List summaries of sent data box messages, most recent first.
+
+    ``from_date`` / ``to_date``: see list_received_messages.
+    """
     try:
-        envelopes = _get_client().list_sent_messages(limit=limit)
+        envelopes = _list_envelopes(
+            _capi.lib.isds_get_list_of_sent_messages, limit, from_date, to_date
+        )
     except DatovkaError as exc:
         raise RuntimeError(str(exc)) from exc
     return [_envelope_to_dict(e) for e in envelopes]
@@ -208,6 +274,55 @@ def get_sent_message(message_id: str, include_attachment_content: bool = False) 
     except DatovkaError as exc:
         raise RuntimeError(str(exc)) from exc
     return _message_to_dict(message, include_content=include_attachment_content)
+
+
+@mcp.tool(
+    title="Save Message Attachments",
+    annotations=READ_ONLY_ANNOTATIONS,
+)
+def save_attachments(message_id: str, directory: str, sent: bool = False) -> list[dict[str, Any]]:
+    """Save a message's documents as files on the machine running this server.
+
+    Use this instead of ``get_message(include_attachment_content=True)`` to
+    read attachments: the bytes never enter the conversation, and the caller
+    can open the returned paths (e.g. ``pdftotext``). ``directory`` must be an
+    absolute path and is created if missing. Existing files are never
+    overwritten (a numeric suffix is added). Set ``sent=True`` for messages
+    from list_sent_messages.
+    """
+    target = Path(directory).expanduser()
+    if not target.is_absolute():
+        raise ValueError("directory must be an absolute path")
+    try:
+        client = _get_client()
+        message = (
+            _fetch_sent_message(client, message_id)
+            if sent
+            else client.get_received_message(message_id)
+        )
+    except DatovkaError as exc:
+        raise RuntimeError(str(exc)) from exc
+    target.mkdir(parents=True, exist_ok=True)
+    saved = []
+    for index, doc in enumerate(message.documents):
+        # Names come from the sender: keep only the final path component.
+        name = Path((doc.filename or "").replace("\\", "/")).name or f"document-{index}"
+        path = target / f"{message_id}_{index}_{name}"
+        counter = 1
+        while path.exists():
+            path = target / f"{message_id}_{index}_{counter}_{name}"
+            counter += 1
+        path.write_bytes(doc.data)
+        saved.append(
+            {
+                "path": str(path),
+                "filename": doc.filename,
+                "mime_type": doc.mime_type,
+                "is_main": doc.is_main,
+                "size_bytes": len(doc.data),
+            }
+        )
+    return saved
 
 
 @mcp.tool(

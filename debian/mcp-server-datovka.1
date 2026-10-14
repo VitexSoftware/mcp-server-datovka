@@ -20,11 +20,12 @@ a ctypes wrapper around
 .SH TOOLS
 The server exposes the following MCP tools:
 .TP
-.B list_received_messages(limit=20)
-Summaries of received messages, most recent first.
+.B list_received_messages(limit=20, from_date=None, to_date=None)
+Summaries of received messages, most recent first. Without a date range ISDS returns
+only about 90 days; pass from_date (ISO date) for older messages.
 .TP
-.B list_sent_messages(limit=20)
-Summaries of sent messages, most recent first.
+.B list_sent_messages(limit=20, from_date=None, to_date=None)
+Summaries of sent messages, most recent first (same date range rules).
 .TP
 .B get_message(message_id, include_attachment_content=False)
 Full received message with documents; attachment bytes are base64-encoded and only
@@ -32,6 +33,10 @@ included on request.
 .TP
 .B get_sent_message(message_id, include_attachment_content=False)
 Same as get_message, for sent messages (IDs from list_sent_messages).
+.TP
+.B save_attachments(message_id, directory, sent=False)
+Save a message's documents as files in an absolute directory and return their paths;
+never overwrites existing files.
 .TP
 .B mark_message_read(message_id)
 Mark a received message as read.

@@ -18,6 +18,7 @@ def test_tools_are_registered() -> None:
         "list_sent_messages",
         "get_message",
         "get_sent_message",
+        "save_attachments",
         "mark_message_read",
         "send_message",
         "send_text_message",
@@ -220,3 +221,37 @@ def test_every_tool_has_title_and_annotations() -> None:
             assert a.read_only_hint is True, tool.name
         if tool.name.startswith("send_"):
             assert a.destructive_hint is True, tool.name
+
+
+def test_parse_date_handles_date_and_end_of_day() -> None:
+    from mcp_server_datovka.server import _parse_date
+
+    assert _parse_date(None) is None
+    start = _parse_date("2024-10-01")
+    end = _parse_date("2024-10-01", end_of_day=True)
+    assert start is not None and end is not None
+    assert end.tv_sec - start.tv_sec == 86399
+    with pytest.raises(ValueError):
+        _parse_date("not-a-date")
+
+
+def test_save_attachments_writes_files_and_never_overwrites(
+    monkeypatch: pytest.MonkeyPatch, tmp_path
+) -> None:
+    from types import SimpleNamespace
+
+    from mcp_server_datovka import server
+
+    doc = SimpleNamespace(
+        filename="../evil/zpráva.pdf", mime_type="application/pdf", is_main=True, data=b"%PDF"
+    )
+    client = SimpleNamespace(get_received_message=lambda _id: SimpleNamespace(documents=[doc]))
+    monkeypatch.setattr(server, "_get_client", lambda: client)
+
+    first = server.save_attachments("42", str(tmp_path))
+    second = server.save_attachments("42", str(tmp_path))
+    assert first[0]["path"] == str(tmp_path / "42_0_zpráva.pdf")
+    assert second[0]["path"] != first[0]["path"]
+    assert (tmp_path / "42_0_zpráva.pdf").read_bytes() == b"%PDF"
+    with pytest.raises(ValueError):
+        server.save_attachments("42", "relative/dir")

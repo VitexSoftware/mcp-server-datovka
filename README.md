@@ -11,10 +11,11 @@ Data Box system ("Datové schránky") as tools, built on
 
 | Tool | Description |
 |---|---|
-| `list_received_messages(limit=20)` | Summaries of received messages, most recent first |
-| `list_sent_messages(limit=20)` | Summaries of sent messages, most recent first |
+| `list_received_messages(limit=20, from_date=None, to_date=None)` | Summaries of received messages, most recent first. Without a date range ISDS returns only ~90 days; pass `from_date` (ISO, e.g. `2024-10-01`) for older ones |
+| `list_sent_messages(limit=20, from_date=None, to_date=None)` | Summaries of sent messages, most recent first (same date range rules) |
 | `get_message(message_id, include_attachment_content=False)` | Full received message with documents; attachment bytes are base64-encoded and only included on request |
 | `get_sent_message(message_id, include_attachment_content=False)` | Same as `get_message`, for sent messages (IDs from `list_sent_messages`) |
+| `save_attachments(message_id, directory, sent=False)` | Save a message's documents as files in an absolute `directory` on the server machine and return their paths — read attachments without base64 in the conversation; never overwrites |
 | `mark_message_read(message_id)` | Mark a received message as read (**write** — blocked when `READ_ONLY=true`) |
 | `send_message(recipient_box_id, subject, attachments, ...)` | Send a new message; `attachments` is a list of dicts with `filename`, `mime_type`, `is_main`, and either `content_base64` or `file_path` (a path on the machine running the server — preferred for anything but tiny files, since the bytes never have to pass through the calling LLM's context), exactly one of which must be `is_main=True` (**write** — blocked when `READ_ONLY=true`) |
 | `send_text_message(recipient_box_id, subject, body)` | Compose plain text as a PDF and send it as the message's main document — no existing file needed (**write** — blocked when `READ_ONLY=true`) |
