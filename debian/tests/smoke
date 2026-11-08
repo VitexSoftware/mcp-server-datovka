@@ -1,0 +1,7 @@
+#!/bin/sh
+# DEP-8 smoke test (MCP-SERVER-STANDARDS.md section 4): spawn the installed
+# MCP server binary, perform the MCP handshake and print the tools/resources/
+# prompts it serves. A broken runtime dependency (e.g. python3-fastmcp)
+# makes the server crash on import and fails this probe (non-zero exit).
+set -e
+mcprack server probe /usr/bin/mcp-server-datovka
