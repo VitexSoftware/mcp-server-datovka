@@ -14,7 +14,7 @@ from __future__ import annotations
 import base64
 import mimetypes
 import os
-from ctypes import POINTER, byref, c_ulong
+from ctypes import POINTER, byref, c_bool, c_char_p, c_int, c_ulong, c_void_p
 from datetime import datetime, timezone
 from functools import lru_cache
 from pathlib import Path
@@ -41,6 +41,13 @@ ASSIGN_ANNOTATIONS = ToolAnnotations(
     read_only_hint=False,
     destructive_hint=False,
     idempotent_hint=True,
+    open_world_hint=True,
+)
+# Files a spam report with the ISDS operator; every call sends another report.
+SPAM_REPORT_ANNOTATIONS = ToolAnnotations(
+    read_only_hint=False,
+    destructive_hint=False,
+    idempotent_hint=False,
     open_world_hint=True,
 )
 # Sends a legally binding, irreversible data box message; each call sends again.
@@ -276,23 +283,38 @@ def get_sent_message(message_id: str, include_attachment_content: bool = False) 
     return _message_to_dict(message, include_content=include_attachment_content)
 
 
+def _save_root() -> Path:
+    """Directory under which attachments may be saved (``DATOVKA_SAVE_DIR``)."""
+    root = os.environ.get("DATOVKA_SAVE_DIR") or "~/datovka-attachments"
+    return Path(root).expanduser().resolve()
+
+
+def _write_new_file(path: Path, data: bytes) -> None:
+    """Create ``path`` exclusively, refusing to follow symlinks or overwrite."""
+    fd = os.open(path, os.O_WRONLY | os.O_CREAT | os.O_EXCL | os.O_NOFOLLOW, 0o600)
+    with os.fdopen(fd, "wb") as handle:
+        handle.write(data)
+
+
 @mcp.tool(
     title="Save Message Attachments",
     annotations=READ_ONLY_ANNOTATIONS,
 )
-def save_attachments(message_id: str, directory: str, sent: bool = False) -> list[dict[str, Any]]:
+def save_attachments(message_id: str, directory: str = "", sent: bool = False) -> list[dict[str, Any]]:
     """Save a message's documents as files on the machine running this server.
 
     Use this instead of ``get_message(include_attachment_content=True)`` to
     read attachments: the bytes never enter the conversation, and the caller
-    can open the returned paths (e.g. ``pdftotext``). ``directory`` must be an
-    absolute path and is created if missing. Existing files are never
-    overwritten (a numeric suffix is added). Set ``sent=True`` for messages
-    from list_sent_messages.
+    can open the returned paths (e.g. ``pdftotext``). Files are only written
+    under the server's ``DATOVKA_SAVE_DIR`` (default ``~/datovka-attachments``);
+    ``directory`` is a subdirectory of it (created if missing) and may not
+    escape it. Existing files are never overwritten (a numeric suffix is
+    added). Set ``sent=True`` for messages from list_sent_messages.
     """
-    target = Path(directory).expanduser()
-    if not target.is_absolute():
-        raise ValueError("directory must be an absolute path")
+    root = _save_root()
+    target = (root / directory).resolve()
+    if target != root and root not in target.parents:
+        raise ValueError(f"directory must be inside {root}")
     try:
         client = _get_client()
         message = (
@@ -307,12 +329,15 @@ def save_attachments(message_id: str, directory: str, sent: bool = False) -> lis
     for index, doc in enumerate(message.documents):
         # Names come from the sender: keep only the final path component.
         name = Path((doc.filename or "").replace("\\", "/")).name or f"document-{index}"
-        path = target / f"{message_id}_{index}_{name}"
-        counter = 1
-        while path.exists():
-            path = target / f"{message_id}_{index}_{counter}_{name}"
-            counter += 1
-        path.write_bytes(doc.data)
+        counter = 0
+        while True:
+            suffix = f"{counter}_" if counter else ""
+            path = target / f"{message_id}_{index}_{suffix}{name}"
+            try:
+                _write_new_file(path, doc.data)
+                break
+            except FileExistsError:
+                counter += 1
         saved.append(
             {
                 "path": str(path),
@@ -477,6 +502,61 @@ def mark_message_read(message_id: str) -> str:
     return f"Message {message_id} marked as read."
 
 
+def _spam_report_fn() -> Any:
+    """Return the bound ``isds_SuspMessageReport`` or raise if libdatovka is too old."""
+    fn = getattr(_capi.lib, "isds_SuspMessageReport", None)
+    if fn is None:
+        raise RuntimeError("libdatovka >= 0.8.0 is required to report spam (installed one lacks it).")
+    fn.argtypes = [c_void_p, c_char_p, c_bool, c_char_p, c_char_p, c_char_p, c_char_p]
+    fn.restype = c_int
+    return fn
+
+
+def _opt_bytes(value: str) -> bytes | None:
+    return value.encode("utf-8") if value else None
+
+
+@mcp.tool(
+    title="Report Message as Spam",
+    annotations=SPAM_REPORT_ANNOTATIONS,
+)
+def report_message_spam(
+    message_id: str,
+    allow_complete: bool,
+    reporter_name: str = "",
+    reporter_email: str = "",
+    reporter_phone: str = "",
+    note: str = "",
+) -> str:
+    """Report a received message as spam to the ISDS operator.
+
+    ``allow_complete`` is mandatory and must be decided by the user: when true,
+    the ISDS administrator may download the complete message (including its
+    contents, possibly personal data); when false only the envelope is shared.
+    Reporter name/email/phone and note are optional.
+
+    Requires libdatovka >= 0.8.0. Deliberately allowed even when ``READ_ONLY``
+    is enabled: it never changes or removes data in the data box.
+    """
+    client = _get_client()
+    fn = _spam_report_fn()
+    client._require_login()
+    code = fn(
+        client._ctx,
+        message_id.encode("utf-8"),
+        allow_complete,
+        _opt_bytes(reporter_name),
+        _opt_bytes(reporter_email),
+        _opt_bytes(reporter_phone),
+        _opt_bytes(note),
+    )
+    try:
+        _check(client._ctx, code, "failed to report message as spam")
+    except DatovkaError as exc:
+        raise RuntimeError(str(exc)) from exc
+    return f"Message {message_id} reported as spam."
+
+
 @mcp.tool(
     title="Ping",
     annotations=READ_ONLY_ANNOTATIONS,
@@ -504,6 +584,7 @@ Environment variables:
   DATOVKA_USERNAME  ISDS login username (required)
   DATOVKA_PASSWORD  ISDS login password (required)
   READ_ONLY         Block send/mark-read tools when true/1/yes (default: true)
+  DATOVKA_SAVE_DIR  Root directory for save_attachments (default: ~/datovka-attachments)
 
 See mcp-server-datovka(1) for the full list of exposed tools.
 """

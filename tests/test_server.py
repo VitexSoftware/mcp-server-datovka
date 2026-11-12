@@ -20,6 +20,7 @@ def test_tools_are_registered() -> None:
         "get_sent_message",
         "save_attachments",
         "mark_message_read",
+        "report_message_spam",
         "send_message",
         "send_text_message",
         "find_data_box",
@@ -248,10 +249,66 @@ def test_save_attachments_writes_files_and_never_overwrites(
     client = SimpleNamespace(get_received_message=lambda _id: SimpleNamespace(documents=[doc]))
     monkeypatch.setattr(server, "_get_client", lambda: client)
 
-    first = server.save_attachments("42", str(tmp_path))
-    second = server.save_attachments("42", str(tmp_path))
-    assert first[0]["path"] == str(tmp_path / "42_0_zpráva.pdf")
+    monkeypatch.setenv("DATOVKA_SAVE_DIR", str(tmp_path))
+    first = server.save_attachments("42", "ds")
+    second = server.save_attachments("42", "ds")
+    assert first[0]["path"] == str(tmp_path / "ds" / "42_0_zpráva.pdf")
     assert second[0]["path"] != first[0]["path"]
-    assert (tmp_path / "42_0_zpráva.pdf").read_bytes() == b"%PDF"
-    with pytest.raises(ValueError):
-        server.save_attachments("42", "relative/dir")
+    assert (tmp_path / "ds" / "42_0_zpráva.pdf").read_bytes() == b"%PDF"
+    for bad in ("../outside", "/etc"):
+        with pytest.raises(ValueError):
+            server.save_attachments("42", bad)
+
+
+def test_save_attachments_does_not_follow_symlinks(monkeypatch: pytest.MonkeyPatch, tmp_path) -> None:
+    from types import SimpleNamespace
+
+    from mcp_server_datovka import server
+
+    victim = tmp_path / "victim.txt"
+    victim.write_text("keep")
+    root = tmp_path / "root"
+    (root / "ds").mkdir(parents=True)
+    (root / "ds" / "42_0_a.pdf").symlink_to(victim)
+    doc = SimpleNamespace(filename="a.pdf", mime_type="application/pdf", is_main=True, data=b"new")
+    client = SimpleNamespace(get_received_message=lambda _id: SimpleNamespace(documents=[doc]))
+    monkeypatch.setattr(server, "_get_client", lambda: client)
+    monkeypatch.setenv("DATOVKA_SAVE_DIR", str(root))
+
+    saved = server.save_attachments("42", "ds")
+    assert victim.read_text() == "keep"
+    assert saved[0]["path"] != str(root / "ds" / "42_0_a.pdf")
+
+
+def test_report_message_spam_passes_arguments(monkeypatch: pytest.MonkeyPatch) -> None:
+    from mcp_server_datovka import server
+
+    monkeypatch.setenv("READ_ONLY", "true")  # spam reporting is exempt
+    calls: list[tuple] = []
+
+    class FakeFn:
+        def __call__(self, *args):
+            calls.append(args)
+            return server._capi.IE_SUCCESS
+
+    class FakeClient:
+        _ctx = 1
+
+        def _require_login(self) -> None:
+            pass
+
+    monkeypatch.setattr(server._capi.lib, "isds_SuspMessageReport", FakeFn(), raising=False)
+    monkeypatch.setattr(server, "_get_client", lambda: FakeClient())
+    out = server.report_message_spam("42", True, reporter_name="Jan", note="phishing")
+    assert "42" in out
+    assert calls == [(1, b"42", True, b"Jan", None, None, b"phishing")]
+
+
+def test_report_message_spam_needs_new_libdatovka(monkeypatch: pytest.MonkeyPatch) -> None:
+    from mcp_server_datovka import server
+
+    monkeypatch.setenv("READ_ONLY", "false")
+    monkeypatch.setattr(server, "_get_client", lambda: object())
+    monkeypatch.setattr(server._capi, "lib", type("L", (), {})())
+    with pytest.raises(RuntimeError, match="0.8.0"):
+        server.report_message_spam("1", False)
