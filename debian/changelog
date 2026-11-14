@@ -1,3 +1,17 @@
+mcp-server-datovka (0.3.0) unstable; urgency=medium
+
+  * Add report_message_spam tool: report a received message as spam to the
+    ISDS operator (libdatovka isds_SuspMessageReport). Deliberately usable
+    even when READ_ONLY is enabled; allow_complete has no default so the
+    caller must decide whether ISDS may download the complete message.
+    Needs libdatovka >= 0.8.0, otherwise the tool returns a clear error.
+  * save_attachments now writes only under DATOVKA_SAVE_DIR (default
+    ~/datovka-attachments), never follows symlinks or overwrites files.
+  * Add date range support and file saving to the message tools, tool
+    titles and annotations.
+
+ -- Vítězslav Dvořák <info@vitexsoftware.cz>  Sat, 14 Nov 2026 10:00:00 +0100
+
 mcp-server-datovka (0.2.5) unstable; urgency=medium
 
   * Add get_sent_message tool: download a sent message in full (envelope

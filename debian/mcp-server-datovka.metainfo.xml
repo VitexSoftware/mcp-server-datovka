@@ -13,8 +13,8 @@
     </p>
     <p>
       Tools cover listing received and sent messages, fetching a full
-      message with its attachments, marking a message as read, and a
-      session health check. Login credentials are read once from the
+      message with its attachments, marking a message as read, reporting a
+      message as spam to ISDS, and a session health check. Login credentials are read once from the
       environment at startup and are never tool parameters.
     </p>
   </description>
